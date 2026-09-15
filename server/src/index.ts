@@ -1,37 +1,6 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import { z } from 'zod';
-import { isSettledPayment, verifyMidtransSignature } from './midtrans.js';
-import { applyMidtransNotification } from './db.js';
-import { createOrder, createOrderSchema, getOrderStatus } from './orders.js';
-import { authenticate, clearSessionCookie, login, loginSchema, requireAdmin, requireAuth, revokeCurrentSession, setSessionCookie, type AuthRequest } from './auth.js';
-
-const app = express();
-const port = Number(process.env.PORT || 8787);
-const origin = process.env.APP_ORIGIN;
-if (process.env.NODE_ENV === 'production' && !origin) throw new Error('APP_ORIGIN is required in production');
-app.disable('x-powered-by');
-app.use(helmet());
-app.use(cors({ origin: origin || 'http://localhost:3000', methods: ['GET','POST'], credentials: true }));
-app.use(express.json({ limit: '64kb' }));
-app.use(authenticate);
-app.get('/api/health', (_req, res) => res.json({ ok:true, service:'aksara-undangan-api' }));
-
-app.post('/api/auth/login', async (req, res) => {
-  const parsed=loginSchema.safeParse(req.body); if(!parsed.success) return res.status(400).json({ok:false,code:'INVALID_CREDENTIALS'});
-  try { const result=await login(parsed.data.email,parsed.data.password); if(!result) return res.status(401).json({ok:false,code:'INVALID_CREDENTIALS'}); setSessionCookie(res,result.token); return res.json({ok:true,user:result.user}); }
-  catch { return res.status(503).json({ok:false,code:'AUTH_UNAVAILABLE'}); }
-});
-app.post('/api/auth/logout', requireAuth, async (req:AuthRequest,res)=>{ try{await revokeCurrentSession(req);}finally{clearSessionCookie(res);} return res.json({ok:true}); });
-app.get('/api/auth/session', requireAuth, (req:AuthRequest,res)=>res.json({ok:true,user:req.authUser}));
-app.get('/api/admin/session', requireAdmin, (req:AuthRequest,res)=>res.json({ok:true,user:req.authUser}));
-
-app.post('/api/orders', async (req,res)=>{ const parsed=createOrderSchema.safeParse(req.body); if(!parsed.success)return res.status(400).json({ok:false,code:'INVALID_ORDER'}); try{return res.status(201).json({ok:true,...(await createOrder(parsed.data))});}catch(error){console.error('Order creation failed');const code=error instanceof Error?error.message:'ORDER_FAILED';const unavailable=code==='DATABASE_NOT_CONFIGURED'||code==='MIDTRANS_NOT_CONFIGURED';return res.status(unavailable?503:502).json({ok:false,code:unavailable?code:'PAYMENT_PROVIDER_ERROR'});} });
-app.get('/api/orders/:orderNumber/status',async(req,res)=>{const parsed=z.string().min(10).max(50).regex(/^[A-Za-z0-9_.~-]+$/).safeParse(req.params.orderNumber);if(!parsed.success)return res.status(400).json({ok:false});try{const result=await getOrderStatus(parsed.data);return result?res.json({ok:true,...result}):res.status(404).json({ok:false});}catch{return res.status(503).json({ok:false});}});
-
-const notificationSchema=z.object({order_id:z.string().min(1).max(50).regex(/^[A-Za-z0-9_.~-]+$/),status_code:z.string().min(1).max(8),gross_amount:z.string().regex(/^\d+(\.0{1,2})?$/),signature_key:z.string().regex(/^[a-fA-F0-9]{128}$/),transaction_status:z.string().min(1).max(32),fraud_status:z.string().max(32).optional()}).passthrough();
-app.post('/api/payments/midtrans/webhook',async(req,res)=>{const parsed=notificationSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({ok:false});const serverKey=process.env.MIDTRANS_SERVER_KEY||'';if(!verifyMidtransSignature(parsed.data,serverKey))return res.status(401).json({ok:false});try{const result=await applyMidtransNotification(parsed.data,isSettledPayment(parsed.data));if(!result.ok){const status=result.code==='ORDER_NOT_FOUND'?404:result.code==='AMOUNT_MISMATCH'?409:503;return res.status(status).json({ok:false,code:result.code});}return res.status(200).json(result);}catch{console.error('Midtrans webhook persistence failed');return res.status(500).json({ok:false});}});
-app.use((_req,res)=>res.status(404).json({ok:false}));
-app.listen(port,()=>console.log(`AKSARA API listening on ${port}`));
+import 'dotenv/config';import express from'express';import cors from'cors';import helmet from'helmet';import{z}from'zod';import{isSettledPayment,verifyMidtransSignature}from'./midtrans.js';import{applyMidtransNotification}from'./db.js';import{createOrder,createOrderSchema,getOrderStatus}from'./orders.js';import{authenticate,clearSessionCookie,login,loginSchema,requireAdmin,requireAuth,revokeCurrentSession,setSessionCookie,type AuthRequest}from'./auth.js';import{getAdminDashboard,getCustomerDashboard}from'./dashboard.js';
+const app=express(),port=Number(process.env.PORT||8787),origin=process.env.APP_ORIGIN;if(process.env.NODE_ENV==='production'&&!origin)throw new Error('APP_ORIGIN is required in production');app.disable('x-powered-by');app.use(helmet());app.use(cors({origin:origin||'http://localhost:3000',methods:['GET','POST'],credentials:true}));app.use(express.json({limit:'64kb'}));app.use(authenticate);app.get('/api/health',(_q,r)=>r.json({ok:true,service:'aksara-undangan-api'}));
+app.post('/api/auth/login',async(q,r)=>{const p=loginSchema.safeParse(q.body);if(!p.success)return r.status(400).json({ok:false,code:'INVALID_CREDENTIALS'});try{const x=await login(p.data.email,p.data.password);if(!x)return r.status(401).json({ok:false,code:'INVALID_CREDENTIALS'});setSessionCookie(r,x.token);return r.json({ok:true,user:x.user})}catch{return r.status(503).json({ok:false,code:'AUTH_UNAVAILABLE'})}});app.post('/api/auth/logout',requireAuth,async(q:AuthRequest,r)=>{try{await revokeCurrentSession(q)}finally{clearSessionCookie(r)}return r.json({ok:true})});app.get('/api/auth/session',requireAuth,(q:AuthRequest,r)=>r.json({ok:true,user:q.authUser}));
+app.get('/api/dashboard',requireAuth,async(q:AuthRequest,r)=>{try{return r.json({ok:true,items:await getCustomerDashboard(q.authUser!.id)})}catch{return r.status(503).json({ok:false})}});app.get('/api/admin/dashboard',requireAdmin,async(_q,r)=>{try{return r.json({ok:true,...await getAdminDashboard()})}catch{return r.status(503).json({ok:false})}});
+app.post('/api/orders',async(q,r)=>{const p=createOrderSchema.safeParse(q.body);if(!p.success)return r.status(400).json({ok:false,code:'INVALID_ORDER'});try{return r.status(201).json({ok:true,...await createOrder(p.data)})}catch(e){console.error('Order creation failed');const c=e instanceof Error?e.message:'ORDER_FAILED',u=c==='DATABASE_NOT_CONFIGURED'||c==='MIDTRANS_NOT_CONFIGURED';return r.status(u?503:502).json({ok:false,code:u?c:'PAYMENT_PROVIDER_ERROR'})}});app.get('/api/orders/:orderNumber/status',async(q,r)=>{const p=z.string().min(10).max(50).regex(/^[A-Za-z0-9_.~-]+$/).safeParse(q.params.orderNumber);if(!p.success)return r.status(400).json({ok:false});try{const x=await getOrderStatus(p.data);return x?r.json({ok:true,...x}):r.status(404).json({ok:false})}catch{return r.status(503).json({ok:false})}});
+const ns=z.object({order_id:z.string().min(1).max(50).regex(/^[A-Za-z0-9_.~-]+$/),status_code:z.string().min(1).max(8),gross_amount:z.string().regex(/^\d+(\.0{1,2})?$/),signature_key:z.string().regex(/^[a-fA-F0-9]{128}$/),transaction_status:z.string().min(1).max(32),fraud_status:z.string().max(32).optional()}).passthrough();app.post('/api/payments/midtrans/webhook',async(q,r)=>{const p=ns.safeParse(q.body);if(!p.success)return r.status(400).json({ok:false});const k=process.env.MIDTRANS_SERVER_KEY||'';if(!verifyMidtransSignature(p.data,k))return r.status(401).json({ok:false});try{const x=await applyMidtransNotification(p.data,isSettledPayment(p.data));if(!x.ok)return r.status(x.code==='ORDER_NOT_FOUND'?404:x.code==='AMOUNT_MISMATCH'?409:503).json({ok:false,code:x.code});return r.status(200).json(x)}catch{return r.status(500).json({ok:false})}});app.use((_q,r)=>r.status(404).json({ok:false}));app.listen(port,()=>console.log(`AKSARA API listening on ${port}`));
