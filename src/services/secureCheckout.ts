@@ -1,27 +1,7 @@
-export interface SecureCheckoutRequest {
-  packageSlug: 'HEMAT' | 'REGULER' | 'VIP';
-  templateSlug: string;
-  invitationSlug: string;
-  customer: { name: string; email: string; phone: string };
-}
-
-export interface SecureCheckoutResult {
-  ok: true;
-  orderId: string;
-  amount: number;
-  snapToken: string;
-  redirectUrl: string;
-}
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-
-export async function createSecureCheckout(payload: SecureCheckoutRequest): Promise<SecureCheckoutResult> {
-  const response = await fetch(`${API_BASE}/api/orders`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json().catch(() => null) as SecureCheckoutResult | { ok: false; code?: string } | null;
-  if (!response.ok || !data || data.ok !== true) throw new Error(data && 'code' in data ? data.code || 'CHECKOUT_FAILED' : 'CHECKOUT_FAILED');
-  return data;
-}
+export interface WeddingCheckoutData { groomName:string; brideName:string; groomFullName:string; brideFullName:string; groomFather:string; groomMother:string; brideFather:string; brideMother:string; akadDate:string; akadTime:string; akadVenue:string; akadAddress:string; akadMaps:string; resepsiDate:string; resepsiTime:string; resepsiVenue:string; resepsiAddress:string; resepsiMaps:string; bankName:string; accountNumber:string; accountHolder:string }
+export interface SecureCheckoutRequest { packageSlug:'HEMAT'|'REGULER'|'VIP'; templateSlug:string; invitationSlug:string; customer:{name:string;email:string;phone:string}; weddingData:WeddingCheckoutData }
+export interface SecureCheckoutResult { ok:true; orderId:string; amount:number; snapToken:string; redirectUrl:string }
+export interface SecureOrderStatus { ok:true; status:string; slug:string; is_published:boolean }
+const API_BASE=(import.meta.env.VITE_API_BASE_URL||'').replace(/\/$/,'');
+export async function createSecureCheckout(payload:SecureCheckoutRequest):Promise<SecureCheckoutResult>{const response=await fetch(`${API_BASE}/api/orders`,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});const data=await response.json().catch(()=>null) as SecureCheckoutResult|{ok:false;code?:string}|null;if(!response.ok||!data||data.ok!==true)throw new Error(data&&'code'in data?data.code||'CHECKOUT_FAILED':'CHECKOUT_FAILED');return data}
+export async function getSecureOrderStatus(orderId:string):Promise<SecureOrderStatus>{const response=await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/status`,{headers:{Accept:'application/json'}});const data=await response.json().catch(()=>null) as SecureOrderStatus|null;if(!response.ok||!data||data.ok!==true)throw new Error('STATUS_FAILED');return data}
