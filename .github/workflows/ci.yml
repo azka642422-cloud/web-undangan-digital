@@ -51,4 +51,10 @@ jobs:
       - run: npm test
       - run: npm run db:migrate
       - run: npm run db:migrate
+      - name: Verify critical schema
+        run: |
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('orders','payments','payment_events','invitations','users','sessions','media_uploads','rate_limit_buckets')")" = "8"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='orders' and column_name='user_id')" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='media_uploads' and column_name in ('status','validated_content_type','object_key')")" = "3"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from pg_indexes where schemaname='public' and indexname in ('idx_orders_user_id','idx_media_uploads_invitation','idx_rate_limit_buckets_expiry')")" = "3"
       - run: npm run build
