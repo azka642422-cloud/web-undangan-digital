@@ -9,6 +9,14 @@ export interface MidtransNotification {
   fraud_status?: string;
 }
 
+export interface MidtransStatus {
+  order_id?: string;
+  gross_amount?: string;
+  transaction_status?: string;
+  fraud_status?: string;
+  transaction_id?: string;
+}
+
 export function verifyMidtransSignature(notification: MidtransNotification, serverKey: string): boolean {
   if (!serverKey || !notification.signature_key) return false;
   const expected = createHash('sha512')
@@ -19,8 +27,11 @@ export function verifyMidtransSignature(notification: MidtransNotification, serv
   return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
 }
 
+export function isTrustedSettlement(transactionStatus?: string, fraudStatus?: string): boolean {
+  if (fraudStatus && fraudStatus.toLowerCase() !== 'accept') return false;
+  return transactionStatus === 'settlement' || transactionStatus === 'capture';
+}
+
 export function isSettledPayment(notification: MidtransNotification): boolean {
-  const status = notification.transaction_status;
-  if (notification.fraud_status && notification.fraud_status !== 'accept') return false;
-  return status === 'settlement' || status === 'capture';
+  return isTrustedSettlement(notification.transaction_status, notification.fraud_status);
 }
