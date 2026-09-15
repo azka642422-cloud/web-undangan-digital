@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-serif-luxury {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-arabic {
+  font-family: 'Scheherazade New', 'Amiri', serif;
+}
+
+.font-amiri {
+  font-family: 'Amiri', serif;
+}
+
+/* Yellowish aged paper texture simulation for Kitab Kuning */
+.kitab-paper {
+  background-color: #F4E8C1;
+  background-image: radial-gradient(#ecdca6 15%, transparent 16%), radial-gradient(#dfcc92 15%, transparent 16%);
+  background-size: 60px 60px;
+  background-position: 0 0, 30px 30px;
+}
+
+/* Classical double border for Kitab Kuning */
+.kitab-border {
+  border: 4px double #5A4326;
+}
+
+.kitab-border-thin {
+  border: 1px solid #755B39;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for invitation viewports */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.4);
+}

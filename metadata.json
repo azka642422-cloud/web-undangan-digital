@@ -1,0 +1,6 @@
+{
+  "name": "AKSARA UNDANGAN",
+  "description": "Platform penjualan dan generator undangan pernikahan digital Indonesia yang elegan, praktis, dan berkesan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
