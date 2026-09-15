@@ -48,9 +48,12 @@ jobs:
           node-version: 22
       - run: npm install --ignore-scripts
       - run: npm run typecheck
-      - run: npm test
-      - run: npm run db:migrate
-      - run: npm run db:migrate
+      - name: Migrate fresh database
+        run: npm run db:migrate
+      - name: Run unit and integration tests
+        run: npm test
+      - name: Verify migration idempotency
+        run: npm run db:migrate
       - name: Verify critical schema
         run: |
           tables=$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('orders','payments','payment_events','invitations','users','sessions','media_uploads','rate_limit_buckets')")
