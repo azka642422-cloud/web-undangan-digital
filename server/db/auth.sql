@@ -27,4 +27,19 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 
+CREATE TABLE IF NOT EXISTS media_uploads(
+  id uuid PRIMARY KEY,
+  invitation_id uuid NOT NULL REFERENCES invitations(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  object_key varchar(255) UNIQUE NOT NULL,
+  category varchar(16) NOT NULL CHECK(category IN('IMAGE','AUDIO')),
+  declared_content_type varchar(100) NOT NULL,
+  validated_content_type varchar(100),
+  byte_size integer NOT NULL CHECK(byte_size>0),
+  status varchar(24) NOT NULL CHECK(status IN('QUARANTINED','VALIDATED','PUBLISHED','REJECTED','DELETED')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_media_uploads_invitation ON media_uploads(invitation_id,created_at DESC);
+
 COMMIT;
