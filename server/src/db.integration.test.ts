@@ -17,7 +17,18 @@ async function seed(packageSlug:'HEMAT'|'REGULER'|'VIP'='REGULER'){
 
 function notification(orderId:string,status:string,gross='50000.00',fraud?:string):MidtransNotification{return{order_id:orderId,status_code:'200',gross_amount:gross,signature_key:'test',transaction_status:status,...(fraud?{fraud_status:fraud}:{})}}
 
-async function cleanup(orderId:string){if(pool)await pool.query('DELETE FROM orders WHERE id=$1',[orderId])}
+async function cleanup(orderId:string){
+  if(!pool)return;
+  const c=await pool.connect();
+  try{
+    await c.query('BEGIN');
+    await c.query('DELETE FROM invitations WHERE order_id=$1',[orderId]);
+    await c.query('DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE order_id=$1)',[orderId]);
+    await c.query('DELETE FROM payments WHERE order_id=$1',[orderId]);
+    await c.query('DELETE FROM orders WHERE id=$1',[orderId]);
+    await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
+}
 
 test('trusted settlement activates invitation and is idempotent',{skip:!enabled},async()=>{
   const x=await seed();
