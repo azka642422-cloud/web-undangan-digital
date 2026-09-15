@@ -10,7 +10,7 @@ function digest(value: string) {
 }
 
 export function ipKey(req: Request) {
-  return digest(req.ip || req.socket.remoteAddress || 'unknown');
+  return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
 export function userOrIpKey(req: Request & { authUser?: { id: string } }) {
@@ -28,13 +28,14 @@ export function sharedRateLimit({ scope, windowMs, limit, key = ipKey }: Options
     const bucket = Math.floor(Date.now() / windowMs);
     const retryAfter = Math.max(1, Math.ceil(((bucket + 1) * windowMs - Date.now()) / 1000));
     try {
+      const keyHash=digest(`${scope}:${key(req)}`);
       const result = await pool.query(
         `INSERT INTO rate_limit_buckets(scope,key_hash,window_bucket,hits,expires_at)
          VALUES($1,$2,$3,1,to_timestamp($4 / 1000.0))
          ON CONFLICT(scope,key_hash,window_bucket)
          DO UPDATE SET hits=rate_limit_buckets.hits+1
          RETURNING hits`,
-        [scope, key(req), bucket, (bucket + 2) * windowMs]
+        [scope, keyHash, bucket, (bucket + 2) * windowMs]
       );
       const hits = Number(result.rows[0]?.hits || 0);
       if (hits > limit) {
