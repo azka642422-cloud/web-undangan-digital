@@ -6,11 +6,12 @@ export const uploadRequestSchema = z.object({ invitationId:z.string().uuid(), ca
 const imageTypes=new Set(['image/jpeg','image/png','image/webp']),audioTypes=new Set(['audio/mpeg','audio/mp4','audio/ogg']);
 export function validateUploadRequest(category:'IMAGE'|'AUDIO',byteSize:number,contentType:string){return category==='IMAGE'?byteSize<=8*1024*1024&&imageTypes.has(contentType):byteSize<=15*1024*1024&&audioTypes.has(contentType)}
 export function detectMediaType(bytes:Uint8Array):string|null{
-  if(bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)return'image/jpeg';
-  if(bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a)return'image/png';
+  const b0=bytes[0],b1=bytes[1],b2=bytes[2];
+  if(bytes.length>=3&&b0===0xff&&b1===0xd8&&b2===0xff)return'image/jpeg';
+  if(bytes.length>=8&&b0===0x89&&b1===0x50&&b2===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a)return'image/png';
   if(bytes.length>=12&&Buffer.from(bytes.subarray(0,4)).toString('ascii')==='RIFF'&&Buffer.from(bytes.subarray(8,12)).toString('ascii')==='WEBP')return'image/webp';
   if(bytes.length>=3&&Buffer.from(bytes.subarray(0,3)).toString('ascii')==='ID3')return'audio/mpeg';
-  if(bytes.length>=2&&bytes[0]===0xff&&(bytes[1]&0xe0)===0xe0)return'audio/mpeg';
+  if(bytes.length>=2&&b0===0xff&&b1!==undefined&&(b1&0xe0)===0xe0)return'audio/mpeg';
   if(bytes.length>=12&&Buffer.from(bytes.subarray(4,8)).toString('ascii')==='ftyp')return'audio/mp4';
   if(bytes.length>=4&&Buffer.from(bytes.subarray(0,4)).toString('ascii')==='OggS')return'audio/ogg';
   return null;
