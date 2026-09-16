@@ -1,6 +1,6 @@
-// Midtrans Payment Gateway Adapter (Production-Ready Architecture)
-// Server keys are strictly loaded from environment variables (process.env.MIDTRANS_SERVER_KEY)
-// Frontend communicates only through backend order & payment endpoints
+// Midtrans Payment Gateway Adapter
+// IMPORTANT: this module is safe-by-default. Real Midtrans network calls must run
+// on a trusted backend/runtime where MIDTRANS_SERVER_KEY is never exposed to the browser.
 
 import {
   PaymentGateway,
@@ -11,60 +11,45 @@ import {
 } from './PaymentGateway';
 
 export class MidtransPaymentGateway implements PaymentGateway {
-  public readonly name = 'Midtrans Snap / Core API (Production)';
+  public readonly name = 'Midtrans Snap';
   private isProduction: boolean;
 
   constructor(isProduction: boolean = false) {
     this.isProduction = isProduction;
   }
 
-  async createTransaction(request: CreateTransactionRequest): Promise<PaymentTransactionResult> {
-    const snapApiUrl = this.isProduction
-      ? 'https://app.midtrans.com/snap/v1/transactions'
-      : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
-
-    // In a production deployment with configured MIDTRANS_SERVER_KEY, this calls the Midtrans Snap API.
-    // When credentials are not yet configured in local environment, it safely fallbacks with clear diagnostic instructions.
-    const transactionId = `MDT-${Date.now()}`;
-    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-    return {
-      success: true,
-      transactionId,
-      orderId: request.orderId,
-      paymentType: 'midtrans_snap',
-      grossAmount: request.amount,
-      status: 'pending',
-      redirectUrl: `${snapApiUrl}/${transactionId}`,
-      snapToken: `MOCK_SNAP_TOKEN_${Date.now()}`,
-      expiryTime: expiry,
-      instructions: [
-        'Selesaikan pembayaran melalui popup Midtrans Snap terenkripsi.',
-        'Pilih metode pembayaran yang Anda inginkan (BCA KlikPay, Mandiri Bill, QRIS, GoPay, Indomaret).',
-        'Sistem akan menerima webhook notifikasi otomatis dan langsung mengaktifkan undangan Anda.',
-      ],
-    };
+  async createTransaction(_request: CreateTransactionRequest): Promise<PaymentTransactionResult> {
+    // Never fabricate a Snap token or redirect URL. A transaction is only valid
+    // after the trusted backend successfully POSTs to Midtrans Snap using Basic
+    // authentication with ServerKey as username and an empty password.
+    throw new Error(
+      `Midtrans ${this.isProduction ? 'production' : 'sandbox'} backend is not configured. ` +
+        'Use MockPaymentGateway for local/demo checkout until the server-side Snap endpoint is deployed.'
+    );
   }
 
   async verifyNotification(payload: PaymentNotificationPayload): Promise<PaymentVerificationResult> {
-    // In production, verify SHA512(order_id + status_code + gross_amount + ServerKey)
-    const isSuccess = payload.status === 'settlement' || payload.status === 'capture';
+    // Browser-side JavaScript cannot safely access MIDTRANS_SERVER_KEY, therefore
+    // it cannot authenticate a Midtrans webhook. Fail closed here. Production
+    // webhook verification belongs on the backend and MUST verify:
+    // SHA512(order_id + status_code + gross_amount + ServerKey), expected order
+    // amount/order identity, transaction status, status code and fraud status.
     return {
-      isValid: true,
+      isValid: false,
       orderId: payload.orderId,
-      transactionStatus: isSuccess ? 'PAID' : 'PENDING',
-      paidAt: isSuccess ? new Date().toISOString() : undefined,
-      message: 'Verified with Midtrans cryptographic signature.',
+      transactionStatus: 'PENDING',
+      message: 'Notification requires trusted server-side Midtrans signature verification.',
     };
   }
 
   async checkStatus(transactionId: string): Promise<PaymentVerificationResult> {
+    // Status must be fetched from Midtrans by a trusted backend. Never mark an
+    // order paid merely because a customer returned from the payment page.
     return {
-      isValid: true,
+      isValid: false,
       orderId: transactionId,
-      transactionStatus: 'PAID',
-      paidAt: new Date().toISOString(),
-      message: 'Status verified from Midtrans API.',
+      transactionStatus: 'PENDING',
+      message: 'Transaction status requires trusted server-side verification.',
     };
   }
 }

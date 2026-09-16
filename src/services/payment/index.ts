@@ -1,15 +1,13 @@
-import { PaymentGateway } from './PaymentGateway';
-import { MockPaymentGateway } from './MockPaymentGateway';
-import { MidtransPaymentGateway } from './MidtransPaymentGateway';
-
 export * from './PaymentGateway';
-export * from './MockPaymentGateway';
-export * from './MidtransPaymentGateway';
 
-// Factory function to obtain appropriate gateway
-export function getPaymentGateway(): PaymentGateway {
-  // Use mock gateway by default for seamless instant testing without blocking
-  return new MockPaymentGateway();
+/**
+ * Legacy browser-side payment gateways are intentionally not exported or
+ * instantiated here. Production checkout must use the authenticated server
+ * order API in secureCheckout.ts; only the server may create Midtrans
+ * transactions or change payment/order state.
+ */
+export function getPaymentGateway(): never {
+  throw new Error('LEGACY_CLIENT_PAYMENT_GATEWAY_DISABLED');
 }
 
-export const activePaymentGateway = getPaymentGateway();
+export const activePaymentGateway = null;

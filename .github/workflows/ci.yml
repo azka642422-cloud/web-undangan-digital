@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [hardening-production]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: npm run lint
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aksara
+          POSTGRES_PASSWORD: aksara_ci
+          POSTGRES_DB: aksara_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U aksara -d aksara_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://aksara:aksara_ci@localhost:5432/aksara_ci
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: npm run typecheck
+      - name: Migrate fresh database
+        run: npm run db:migrate
+      - name: Run unit and integration tests
+        run: npm test
+      - name: Verify migration idempotency
+        run: npm run db:migrate
+      - name: Verify critical schema
+        run: |
+          tables=$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('orders','payments','payment_events','invitations','users','sessions','media_uploads','rate_limit_buckets')")
+          order_owner=$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='orders' and column_name='user_id'")
+          media_columns=$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='media_uploads' and column_name in ('status','validated_content_type','object_key')")
+          indexes=$(psql "$DATABASE_URL" -Atc "select count(*) from pg_indexes where schemaname='public' and indexname in ('idx_orders_user_id','idx_media_uploads_invitation','idx_rate_limit_buckets_expiry')")
+          test "$tables" = "8"
+          test "$order_owner" = "1"
+          test "$media_columns" = "3"
+          test "$indexes" = "3"
+      - run: npm run build

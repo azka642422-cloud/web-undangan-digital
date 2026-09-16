@@ -1,5 +1,5 @@
 // Payment Gateway Interface Abstraction
-// Decouples payment provider logic from checkout and invitation activation
+// Decouples payment provider logic from checkout and invitation activation.
 
 export interface CreateTransactionRequest {
   orderId: string;
@@ -32,10 +32,16 @@ export interface PaymentNotificationPayload {
   orderId: string;
   transactionId: string;
   status: 'settlement' | 'capture' | 'pending' | 'deny' | 'cancel' | 'expire' | 'failure';
-  grossAmount: number;
-  signatureKey?: string;
+  /** Exact Midtrans gross_amount string (for example "50000.00"). Do not reformat before signature verification. */
+  grossAmount: string;
+  /** Midtrans HTTP notification status_code. */
+  statusCode: string;
+  /** Required for cryptographic verification in production. */
+  signatureKey: string;
   paymentType: string;
   transactionTime: string;
+  /** Required for capture transactions; only ACCEPT is considered payable. */
+  fraudStatus?: 'accept' | 'challenge' | 'deny' | string;
 }
 
 export interface PaymentVerificationResult {
